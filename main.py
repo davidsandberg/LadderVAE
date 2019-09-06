@@ -23,16 +23,6 @@ Train a variational autoencoder on MNIST
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-#
-# Fix loop indexing i VAE decoder
-# Try VAEs with more layers
-# Implement running only generative model
-# Implement importance weighted sampling
-# Fix git diff if needed
-# Learning rate annealing
-
-
-
 import tensorflow as tf
 import numpy as np
 import argparse
