@@ -31,6 +31,7 @@ import sys, os, time
 from VAE import VAE
 from LVAE import LVAE
 import utils
+import h5py
 
 def create_dataset(x, y, batch_size):
     # Create a dataset tensor from the images and the labels
@@ -107,87 +108,89 @@ def main(args):
     utils.store_hdf(os.path.join(res_dir, 'parameters.h5'), vars(args))
     
     # Create statistics object
-    stat = utils.Stat(os.path.join(res_dir, 'stat.h5'))
-
-    with tf.Graph().as_default():
-        tf.compat.v1.random.set_random_seed(args.seed)
-        np.random.seed(args.seed)
+    stat_filename = os.path.join(res_dir, 'stat.h5')
+    with h5py.File(stat_filename, 'w') as f:
+        stat = utils.Stat(f)
     
-        ###########################################
-        """             Load Data               """
-        ###########################################
-        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-        nrof_train_batches = int(np.ceil(x_train.shape[0] / args.batch_size))
-        nrof_test_batches = int(np.ceil(x_test.shape[0] / args.batch_size))
-        input_dims = (x_train.shape[1], x_train.shape[2], 1)
-        train_iterator = create_dataset(x_train, y_train, args.batch_size)
-        test_iterator = create_dataset(x_test, y_test, args.batch_size)
-        xtrain, ytrain = train_iterator.get_next() #@UnusedVariable
-        xtest, ytest = test_iterator.get_next() #@UnusedVariable
-    
-        ###########################################
-        """        Build Model Graphs           """
-        ###########################################
-        with tf.compat.v1.variable_scope("vae"):
-    
-            warmup_temp = tf.compat.v1.placeholder(tf.float32, shape=(), name="warmup_temp")
-    
-            if args.model_type=='VAE':
-                m = VAE(input_dims, args.learning_rate, warmup_temp, to_list(args.nrof_stochastic_units), to_list(args.nrof_mlp_units))
-            elif args.model_type=='LVAE':
-                m = LVAE(input_dims, args.learning_rate, warmup_temp, to_list(args.nrof_stochastic_units), to_list(args.nrof_mlp_units))
-            else:
-                raise ValueError('Invalid model type')
-            print('Building train graph...')
-            train_op, train_o, train_dbg = m.build_graph(xtrain, is_training=True)
-
-            print('Building evaluation graph...')
-            _, eval_o, eval_dbg = m.build_graph(xtest, is_training=False) #@UnusedVariable
-
-        init_op = tf.compat.v1.global_variables_initializer()
-    
-        sess  = tf.compat.v1.InteractiveSession()
-        sess.run(init_op)
-        sess.run(train_iterator.initializer)
-        sess.run(test_iterator.initializer)
-    
-        print('... start training')
-        for epoch in range(1, args.nrof_epochs+1):
-    
-            # Get warm-up temperature
-            temp = get_warmup_temp(epoch, args.nrof_warmup_epochs)
-    
-            start_time = time.time()
-            for _ in range(nrof_train_batches):
-                feed_dict = {warmup_temp: temp}
-                o, dbg, _ = sess.run([train_o, train_dbg, train_op], feed_dict=feed_dict) #@UnusedVariable
-                stat.add(add_prefix('train_', flatten(o)))
-                
-                #if is_nan_or_inf(dbg.values()) or is_nan_or_inf(o.values()):
-                #    xxx = 1 #@UnusedVariable
-    
-            print(' epoch: %5d  time: %6.3f   temp: %10.3f  elbo: %10.3f   log p(x): %10.3f   log p(z): %8.3f | %8.3f  log q(z): %8.3f | %8.3f  KL(q(z|x)||p(z)): %8.3f | %8.3f' % \
-                  (epoch, time.time()-start_time, temp, o['elbo'], o['log_px'], o['log_pz'][0], o['log_pz'][1], o['log_qz'][0], o['log_qz'][1], o['kl'][0], o['kl'][1] ))
-            
-            # Evaluate every n epochs
-            if epoch % args.eval_every_n_epochs == 0:
-                o_list = []
-                start_time = time.time()
-                for _ in range(nrof_test_batches):
-                    feed_dict = {warmup_temp: 1.0}
-                    o, dbg = sess.run([eval_o, eval_dbg], feed_dict=feed_dict) #@UnusedVariable
-                    o_list += [ flatten(o) ]
+        with tf.Graph().as_default():
+            tf.compat.v1.random.set_random_seed(args.seed)
+            np.random.seed(args.seed)
         
-                o_mean = mean(o_list)
+            ###########################################
+            """             Load Data               """
+            ###########################################
+            (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+            nrof_train_batches = int(np.ceil(x_train.shape[0] / args.batch_size))
+            nrof_test_batches = int(np.ceil(x_test.shape[0] / args.batch_size))
+            input_dims = (x_train.shape[1], x_train.shape[2], 1)
+            train_iterator = create_dataset(x_train, y_train, args.batch_size)
+            test_iterator = create_dataset(x_test, y_test, args.batch_size)
+            xtrain, ytrain = train_iterator.get_next() #@UnusedVariable
+            xtest, ytest = test_iterator.get_next() #@UnusedVariable
+        
+            ###########################################
+            """        Build Model Graphs           """
+            ###########################################
+            with tf.compat.v1.variable_scope("vae"):
+        
+                warmup_temp = tf.compat.v1.placeholder(tf.float32, shape=(), name="warmup_temp")
+        
+                if args.model_type=='VAE':
+                    m = VAE(input_dims, args.learning_rate, warmup_temp, to_list(args.nrof_stochastic_units), to_list(args.nrof_mlp_units))
+                elif args.model_type=='LVAE':
+                    m = LVAE(input_dims, args.learning_rate, warmup_temp, to_list(args.nrof_stochastic_units), to_list(args.nrof_mlp_units))
+                else:
+                    raise ValueError('Invalid model type')
+                print('Building train graph...')
+                train_op, train_o, train_dbg = m.build_graph(xtrain, is_training=True)
+    
+                print('Building evaluation graph...')
+                _, eval_o, eval_dbg = m.build_graph(xtest, is_training=False) #@UnusedVariable
+    
+            init_op = tf.compat.v1.global_variables_initializer()
+        
+            sess  = tf.compat.v1.InteractiveSession()
+            sess.run(init_op)
+            sess.run(train_iterator.initializer)
+            sess.run(test_iterator.initializer)
+        
+            print('... start training')
+            for epoch in range(1, args.nrof_epochs+1):
+        
+                # Get warm-up temperature
+                temp = get_warmup_temp(epoch, args.nrof_warmup_epochs)
+        
+                start_time = time.time()
+                for _ in range(nrof_train_batches):
+                    feed_dict = {warmup_temp: temp}
+                    o, dbg, _ = sess.run([train_o, train_dbg, train_op], feed_dict=feed_dict) #@UnusedVariable
+                    stat.add(add_prefix('train_', flatten(o)))
+                    
+                    #if is_nan_or_inf(dbg.values()) or is_nan_or_inf(o.values()):
+                    #    xxx = 1 #@UnusedVariable
+        
+                print(' epoch: %5d  time: %6.3f   temp: %10.3f  elbo: %10.3f   log p(x): %10.3f   log p(z): %8.3f | %8.3f  log q(z): %8.3f | %8.3f  KL(q(z|x)||p(z)): %8.3f | %8.3f' % \
+                      (epoch, time.time()-start_time, temp, o['elbo'], o['log_px'], o['log_pz'][0], o['log_pz'][1], o['log_qz'][0], o['log_qz'][1], o['kl'][0], o['kl'][1] ))
                 
-                stat.add(add_prefix('eval_', o_mean))
-                if args.display_eval:
-                    print('*epoch: %5d  time: %6.3f   temp: %10.3f  elbo: %10.3f   log p(x): %10.3f   log p(z): %8.3f | %8.3f  log q(z): %8.3f | %8.3f  KL(q(z|x)||p(z)): %8.3f | %8.3f' % \
-                          (epoch, time.time()-start_time, 1.0, o_mean['elbo'], o_mean['log_px'], o_mean['log_pz_0'], o_mean['log_pz_1'], o_mean['log_qz_0'], o_mean['log_qz_1'], o_mean['kl_0'], o_mean['kl_1'] ))
-
-            # Store statistics
-            stat.store()
-                
+                # Evaluate every n epochs
+                if epoch % args.eval_every_n_epochs == 0:
+                    o_list = []
+                    start_time = time.time()
+                    for _ in range(nrof_test_batches):
+                        feed_dict = {warmup_temp: 1.0}
+                        o, dbg = sess.run([eval_o, eval_dbg], feed_dict=feed_dict) #@UnusedVariable
+                        o_list += [ flatten(o) ]
+            
+                    o_mean = mean(o_list)
+                    
+                    stat.add(add_prefix('eval_', o_mean))
+                    if args.display_eval:
+                        print('*epoch: %5d  time: %6.3f   temp: %10.3f  elbo: %10.3f   log p(x): %10.3f   log p(z): %8.3f | %8.3f  log q(z): %8.3f | %8.3f  KL(q(z|x)||p(z)): %8.3f | %8.3f' % \
+                              (epoch, time.time()-start_time, 1.0, o_mean['elbo'], o_mean['log_px'], o_mean['log_pz_0'], o_mean['log_pz_1'], o_mean['log_qz_0'], o_mean['log_qz_1'], o_mean['kl_0'], o_mean['kl_1'] ))
+    
+                # Store statistics
+                stat.store()
+                  
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()

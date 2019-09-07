@@ -92,10 +92,11 @@ def store_hdf(filename, stat):
 
 class Stat(object):
 
-    def __init__(self, filename, ignore_list=[]):
-        self.filename = filename
+    def __init__(self, file, ignore_list=[]):
         self.ignore_list = ignore_list
         self.current = dict()
+        self.file = file
+        self.datasets = dict()
         
     def add(self, new):
         for key, value in new.items():
@@ -105,19 +106,20 @@ class Stat(object):
                 self.current[key] += [ value ]
         
     def store(self):
-        with h5py.File(self.filename, 'w') as f:
-            for key, value in self.current.items():
-                arr = np.stack(value)
-                f.create_dataset(key, data=arr)
+        for key, value in self.current.items():
+            arr = np.vstack(value)
+            if not key in self.datasets:
+                maxshape = (None,) + arr.shape[1:]
+                self.datasets[key] = self.file.create_dataset(
+                    key, arr.shape, chunks=arr.shape, maxshape=maxshape)
+            else:
+                new_size = self.datasets[key].shape[0] + arr.shape[0]
+                self.datasets[key].resize(new_size, axis=0)
+            self.datasets[key][-arr.shape[0]:] = arr
+            self.current[key] = []
                 
-    @staticmethod
-    def load(filename):
-        stat = dict()
-        with h5py.File(filename, 'r') as f:
-            for key in f.keys():
-                stat[key] = np.array(f[key])
-                print(key, stat[key].shape)
-        return stat
-
-
-
+    def load(self):
+        for key in self.file.keys():
+            self.current[key] = np.array(self.file[key])
+            print('%s: %s' % (key, self.current[key].shape))
+        return self
