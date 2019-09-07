@@ -29,6 +29,7 @@ from subprocess import Popen, PIPE
 import pickle
 import shutil
 import h5py
+import numpy as np
 
 def gettime():
     return datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d-%H%M%S')
@@ -88,4 +89,35 @@ def store_hdf(filename, stat):
     with h5py.File(filename, 'w') as f:
         for key, value in stat.items():
             f.create_dataset(key, data=value)
+
+class Stat(object):
+
+    def __init__(self, filename, ignore_list=[]):
+        self.filename = filename
+        self.ignore_list = ignore_list
+        self.current = dict()
+        
+    def add(self, new):
+        for key, value in new.items():
+            if key not in self.ignore_list:
+                if key not in self.current:
+                    self.current[key] = []
+                self.current[key] += [ value ]
+        
+    def store(self):
+        with h5py.File(self.filename, 'w') as f:
+            for key, value in self.current.items():
+                arr = np.stack(value)
+                f.create_dataset(key, data=arr)
+                
+    @staticmethod
+    def load(filename):
+        stat = dict()
+        with h5py.File(filename, 'r') as f:
+            for key in f.keys():
+                stat[key] = np.array(f[key])
+                print(key, stat[key].shape)
+        return stat
+
+
 

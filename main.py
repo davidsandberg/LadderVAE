@@ -26,33 +26,11 @@ Train a variational autoencoder on MNIST
 import tensorflow as tf
 import numpy as np
 import argparse
-import h5py
 from datetime import datetime
 import sys, os, time
 from VAE import VAE
 from LVAE import LVAE
 import utils
-
-class Stat(object):
-
-    def __init__(self, filename, ignore_list=[]):
-        self.filename = filename
-        self.ignore_list = ignore_list
-        self.current = dict()
-        
-    def add(self, new):
-        for key, value in new.items():
-            if key not in self.ignore_list:
-                if key not in self.current:
-                    self.current[key] = []
-                self.current[key] += [ value ]
-        
-    def store(self):
-        with h5py.File(self.filename, 'w') as f:
-            for key, value in self.current.items():
-                arr = np.stack(value)
-                f.create_dataset(key, data=arr)
-
 
 def create_dataset(x, y, batch_size):
     # Create a dataset tensor from the images and the labels
@@ -129,7 +107,7 @@ def main(args):
     utils.store_hdf(os.path.join(res_dir, 'parameters.h5'), vars(args))
     
     # Create statistics object
-    stat = Stat(os.path.join(res_dir, 'stat.h5'))
+    stat = utils.Stat(os.path.join(res_dir, 'stat.h5'))
 
     with tf.Graph().as_default():
         tf.compat.v1.random.set_random_seed(args.seed)
