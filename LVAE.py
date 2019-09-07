@@ -73,20 +73,17 @@ class LVAE(VAE):
                 h = self.mlp(h, self.nrof_mlp_units[l], activation=tf.nn.leaky_relu, nrof_layers=nrof_layers, training=is_training)
                 dbg['h_%d' % l] = h
       
-                """ prepare for bidirectional inference """
                 q_mu_hat[l] = self.dense(h, self.nrof_stochastic_units[l], training=is_training)
-                q_sigma_hat[l] = self.softlimit(self.dense(h, self.nrof_stochastic_units[l], training=is_training))
+                q_sigma_hat[l] = self.dense(h, self.nrof_stochastic_units[l], activation=self.softlimit, training=is_training)
                 h = q_mu_hat[l]
       
                 dbg['q_mu_hat_%d' % l] = q_mu_hat[l]
                 dbg['q_sigma_hat_%d' % l] = q_sigma_hat[l]
                 
-            z[l] = self.sample(q_mu_hat[l], q_sigma_hat[l])  # check index
+            z[l] = self.sample(q_mu_hat[l], q_sigma_hat[l])
             h = self.decoder_sample(z[l], None, None)
             
-            q_mu[-1] = q_mu_hat[-1]
-            q_sigma[-1] = q_sigma_hat[-1]
-            
+            q_mu[-1], q_sigma[-1] = q_mu_hat[-1], q_sigma_hat[-1]
             p_mu[-1], p_sigma[-1] = tf.zeros_like(q_mu[-1]), tf.ones_like(q_sigma[-1])
       
             # Create decoder
@@ -94,7 +91,7 @@ class LVAE(VAE):
       
                 h_enc = self.mlp(h, self.nrof_mlp_units[l], activation=tf.nn.leaky_relu, nrof_layers=nrof_layers, training=is_training)
                 p_mu_enc = self.dense(h_enc, self.nrof_stochastic_units[l], training=is_training)
-                p_sigma_enc = self.softlimit(self.dense(h_enc, self.nrof_stochastic_units[l], training=is_training))
+                p_sigma_enc = self.dense(h_enc, self.nrof_stochastic_units[l], activation=self.softlimit, training=is_training)
                 
                 if self.ladder_share_params:
                     p_mu[l] = p_mu_enc
@@ -102,7 +99,7 @@ class LVAE(VAE):
                 else:
                     h_dec = self.mlp(h, self.nrof_mlp_units[l], activation=tf.nn.leaky_relu, nrof_layers=nrof_layers, training=is_training)
                     p_mu[l] = self.dense(h_dec, self.nrof_stochastic_units[l], training=is_training)
-                    p_sigma[l] = self.softlimit(self.dense(h_dec, self.nrof_stochastic_units[l], training=is_training))
+                    p_sigma[l] = self.dense(h_dec, self.nrof_stochastic_units[l], activation=self.softlimit, training=is_training)
       
                 dbg['p_mu_%d' % l] = p_mu[l]
                 dbg['p_sigma_%d' % l] = p_sigma[l]
@@ -114,10 +111,10 @@ class LVAE(VAE):
                 dbg['z_%d' % l]  = z[l]
                 dbg['h_%d' % l]  = h
       
-            h = self.mlp(h, self.nrof_mlp_units[l], activation=tf.nn.leaky_relu, nrof_layers=nrof_layers, training=is_training)  # Check index in mlp units
+            h = self.mlp(h, self.nrof_mlp_units[l], activation=tf.nn.leaky_relu, nrof_layers=nrof_layers, training=is_training)
             nrof_features = np.prod(self.input_dims)
             x_reconst_mu = self.dense(h, nrof_features, training=is_training, use_batch_norm=False)
-            x_reconst_sigma = self.softlimit(self.dense(h, nrof_features, training=is_training, use_batch_norm=False)) #@UnusedVariable
+            x_reconst_sigma = self.dense(h, nrof_features, activation=self.softlimit, training=is_training, use_batch_norm=False) #@UnusedVariable
             
             x_reconst = x_reconst_mu
 

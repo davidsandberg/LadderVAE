@@ -93,7 +93,7 @@ class VAE(object):
       
                 """ prepare for bidirectional inference """
                 q_mu[l] = self.dense(h, self.nrof_stochastic_units[l], training=is_training)
-                q_sigma[l] = self.softlimit(self.dense(h, self.nrof_stochastic_units[l], training=is_training))
+                q_sigma[l] = self.dense(h, self.nrof_stochastic_units[l], activation=self.softlimit, training=is_training)
                 z[l] = self.sample(q_mu[l], q_sigma[l])
                 h = z[l]
       
@@ -112,7 +112,7 @@ class VAE(object):
                 else:
                     """ prior is developed from z of the above layer """
                     p_mu[l] = self.dense(h, self.nrof_stochastic_units[l], training=is_training)
-                    p_sigma[l] = self.softlimit(self.dense(h, self.nrof_stochastic_units[l], training=is_training))
+                    p_sigma[l] = self.dense(h, self.nrof_stochastic_units[l], activation=self.softlimit, training=is_training)
       
                 dbg['p_mu_%d' % l] = p_mu[l]
                 dbg['p_sigma_%d' % l] = p_sigma[l]
