@@ -113,7 +113,7 @@ class LVAE(VAE):
       
             h = self.mlp(h, self.nrof_mlp_units[l], activation=tf.nn.leaky_relu, nrof_layers=nrof_layers, training=is_training)
             nrof_features = np.prod(self.input_dims)
-            x_reconst_mu = self.dense(h, nrof_features, training=is_training, use_batch_norm=False)
+            x_reconst_mu = self.dense(h, nrof_features, activation=tf.nn.sigmoid, training=is_training, use_batch_norm=False)
             x_reconst_sigma = self.dense(h, nrof_features, activation=self.softlimit, training=is_training, use_batch_norm=False) #@UnusedVariable
             
             x_reconst = x_reconst_mu

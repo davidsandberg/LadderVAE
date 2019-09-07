@@ -121,7 +121,8 @@ class VAE(object):
                 h = self.mlp(z[l], self.nrof_mlp_units[l], activation=tf.nn.leaky_relu, nrof_layers=nrof_layers, training=is_training)
                 dbg['h_%d' % l]  = h
       
-            x_reconst = self.dense(h, np.prod(self.input_dims[:2]), tf.nn.sigmoid, training=is_training) # Reconstruction
+            nrof_features = np.prod(self.input_dims)
+            x_reconst = self.dense(h, nrof_features, activation=tf.nn.sigmoid, training=is_training, use_batch_norm=False) # Reconstruction
 
             if len(self.input_dims)==3: 
                 x_reconst = tf.reshape(x_reconst, (-1, self.input_dims[0], self.input_dims[1], self.input_dims[2]))
