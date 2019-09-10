@@ -121,7 +121,8 @@ class Stat(object):
             self.is_created = True
 
     def load(self):
-        for key in self.file.keys():
-            self.current[key] = np.array(self.file[key])
-            #print('%s: %s' % (key, self.current[key].shape))
+        with h5py.File(self.filename, 'r') as f:
+          for key in f.keys():
+              self.current[key] = np.array(f[key])
+              #print('%s: %s' % (key, self.current[key].shape))
         return self
