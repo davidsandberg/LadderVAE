@@ -89,14 +89,14 @@ def store_hdf(filename, stat):
     with h5py.File(filename, 'w') as f:
         for key, value in stat.items():
             f.create_dataset(key, data=value)
-
+            
 class Stat(object):
 
-    def __init__(self, file, ignore_list=[]):
+    def __init__(self, filename, ignore_list=[]):
         self.ignore_list = ignore_list
         self.current = dict()
-        self.file = file
-        self.datasets = dict()
+        self.filename = filename
+        self.is_created = False
         
     def add(self, new):
         for key, value in new.items():
@@ -104,22 +104,24 @@ class Stat(object):
                 if key not in self.current:
                     self.current[key] = []
                 self.current[key] += [ value ]
-        
+
     def store(self):
-        for key, value in self.current.items():
-            arr = np.vstack(value)
-            if not key in self.datasets:
-                maxshape = (None,) + arr.shape[1:]
-                self.datasets[key] = self.file.create_dataset(
-                    key, arr.shape, chunks=arr.shape, maxshape=maxshape)
-            else:
-                new_size = self.datasets[key].shape[0] + arr.shape[0]
-                self.datasets[key].resize(new_size, axis=0)
-            self.datasets[key][-arr.shape[0]:] = arr
-            self.current[key] = []
-                
+        flag = 'a' if self.is_created else 'w'
+        with h5py.File(self.filename, flag) as f:
+            for key, value in self.current.items():
+                arr = np.hstack(value)
+                if not key in f.keys():
+                    maxshape = (None,) + arr.shape[1:]
+                    f.create_dataset(key, arr.shape, chunks=arr.shape, maxshape=maxshape)
+                else:
+                    new_size = f[key].shape[0] + arr.shape[0]
+                    f[key].resize(new_size, axis=0)
+                f[key][-arr.shape[0]:] = arr
+                self.current[key] = []
+            self.is_created = True
+
     def load(self):
         for key in self.file.keys():
             self.current[key] = np.array(self.file[key])
-            print('%s: %s' % (key, self.current[key].shape))
+            #print('%s: %s' % (key, self.current[key].shape))
         return self
