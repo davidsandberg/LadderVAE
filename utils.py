@@ -109,15 +109,16 @@ class Stat(object):
         flag = 'a' if self.is_created else 'w'
         with h5py.File(self.filename, flag) as f:
             for key, value in self.current.items():
-                arr = np.hstack(value)
-                if not key in f.keys():
-                    maxshape = (None,) + arr.shape[1:]
-                    f.create_dataset(key, arr.shape, chunks=arr.shape, maxshape=maxshape)
-                else:
-                    new_size = f[key].shape[0] + arr.shape[0]
-                    f[key].resize(new_size, axis=0)
-                f[key][-arr.shape[0]:] = arr
-                self.current[key] = []
+                if value:  # Do not try to add empty lists
+                    arr = np.hstack(value)
+                    if not key in f.keys():
+                        maxshape = (None,) + arr.shape[1:]
+                        f.create_dataset(key, arr.shape, chunks=arr.shape, maxshape=maxshape)
+                    else:
+                        new_size = f[key].shape[0] + arr.shape[0]
+                        f[key].resize(new_size, axis=0)
+                    f[key][-arr.shape[0]:] = arr
+                    self.current[key] = []
             self.is_created = True
 
     def load(self):
